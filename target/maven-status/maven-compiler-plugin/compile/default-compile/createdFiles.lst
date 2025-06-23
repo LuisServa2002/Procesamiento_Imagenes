@@ -1,0 +1,7 @@
+com\mycompany\procesamientoimagenespc04\FrameMetadata.class
+com\mycompany\procesamientoimagenespc04\ParallelProcessor$ReproduceFrameTask.class
+com\mycompany\procesamientoimagenespc04\MainImageProcessor.class
+com\mycompany\procesamientoimagenespc04\ParallelProcessor.class
+com\mycompany\procesamientoimagenespc04\ImageUtils.class
+com\mycompany\procesamientoimagenespc04\ParallelProcessor$GenerateFrameTask.class
+com\mycompany\procesamientoimagenespc04\SerialProcessor.class
