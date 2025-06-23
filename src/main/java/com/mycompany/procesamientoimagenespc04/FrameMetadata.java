@@ -1,18 +1,18 @@
 package com.mycompany.procesamientoimagenespc04;
 
-// This class will be serialized/deserialized by Jackson for JSON
+// Esta clase será serializada/deserializada por Jackson para JSON
 public class FrameMetadata {
     public long id;
-    public int x; // X-coordinate (horizontal offset) of the top-left corner of the frame
-    public int y; // Y-coordinate (vertical offset) of the top-left corner of the frame
-    public int width; // Width of the frame (n_SUB)
-    public int height; // Height of the frame (m_SUB)
-    public String mainImagePath; // Path to the main image file
+    public int x; // Coordenada X (desplazamiento horizontal) de la esquina superior izquierda del frame
+    public int y; // Coordenada Y (desplazamiento vertical) de la esquina superior izquierda del frame
+    public int width; // Ancho del frame (n_SUB)
+    public int height; // Altura del frame (m_SUB)
+    public String mainImagePath; // Ruta al archivo de la imagen principal
 
-    // Default constructor for Jackson (required for deserialization)
+    // Constructor por defecto para Jackson (requerido para la deserialización)
     public FrameMetadata() {}
 
-    // Parameterized constructor for easy object creation
+    // Constructor parametrizado para facilitar la creación de objetos
     public FrameMetadata(long id, int x, int y, int width, int height, String mainImagePath) {
         this.id = id;
         this.x = x;
@@ -22,8 +22,8 @@ public class FrameMetadata {
         this.mainImagePath = mainImagePath;
     }
 
-    // Getters and Setters (Jackson can often work without them if fields are public,
-    // but it's good practice to include them for encapsulation and JavaBeans conventions)
+    // Getters y Setters (Jackson a menudo puede funcionar sin ellos si los campos son públicos,
+    // pero es una buena práctica incluirlos para la encapsulación y las convenciones de JavaBeans)
     public long getId() { return id; }
     public void setId(long id) { this.id = id; }
     public int getX() { return x; }
