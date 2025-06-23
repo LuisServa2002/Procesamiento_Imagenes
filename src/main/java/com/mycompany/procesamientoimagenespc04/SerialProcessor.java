@@ -1,32 +1,33 @@
 package com.mycompany.procesamientoimagenespc04;
 
-import com.fasterxml.jackson.databind.ObjectMapper; // For JSON serialization/deserialization
+import com.fasterxml.jackson.databind.ObjectMapper; // Para serialización/deserialización JSON.
 
-import javax.imageio.ImageIO; // For image reading/writing
-import java.awt.image.BufferedImage; // Represents an image in memory
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.zip.ZipEntry; // For ZIP compression
-import java.util.zip.ZipOutputStream; // For ZIP compression
+import javax.imageio.ImageIO; // Para lectura y escritura de imágenes.
+import java.awt.image.BufferedImage; // Representa una imagen en memoria.
+import java.io.File; // Para operaciones con archivos.
+import java.io.FileOutputStream; // Para escribir datos en un archivo.
+import java.io.IOException; // Para manejar excepciones de entrada/salida.
+import java.nio.file.Files; // Para operaciones con archivos y directorios.
+import java.nio.file.Path; // Para representar rutas de archivos.
+import java.nio.file.Paths; // Para obtener objetos Path.
+import java.util.ArrayList; // Para listas dinámicas.
+import java.util.List; // Interfaz para colecciones de elementos.
+import java.util.zip.ZipEntry; // Para la compresión ZIP.
+import java.util.zip.ZipOutputStream; // Para la compresión ZIP.
 
 public class SerialProcessor {
 
-    protected final String mainImagePath;
-    protected final int M_MAIN; // Height of the main image
-    protected final int N_MAIN; // Width of the main image
-    protected final int m_SUB;  // Sub-image height
-    protected final int n_SUB;  // Sub-image width
-    protected final String physicalFramesDir; // Directory for physical frames
-    protected final String virtualMetadataFile; // File for virtual frame metadata
-    protected final long totalFrames; // Total number of possible frames
-    protected final int[] mainImageDims; // {width, height} as read from the main image file
+    protected final String mainImagePath; // Ruta de la imagen principal.
+    protected final int M_MAIN; // Altura de la imagen principal (definida por configuración).
+    protected final int N_MAIN; // Ancho de la imagen principal (definida por configuración).
+    protected final int m_SUB;  // Altura de la sub-imagen (frame).
+    protected final int n_SUB;  // Ancho de la sub-imagen (frame).
+    protected final String physicalFramesDir; // Directorio para los frames físicos generados.
+    protected final String virtualMetadataFile; // Archivo para los metadatos de los frames virtuales.
+    protected final long totalFrames; // Número total de frames posibles.
+    protected final int[] mainImageDims; // {ancho, alto} de la imagen principal, leídos del archivo.
 
+    // Constructor que inicializa las propiedades del procesador serial.
     public SerialProcessor(String mainImagePath, int M_MAIN, int N_MAIN, int m_SUB, int n_SUB,
                            String physicalFramesDir, String virtualMetadataFile) {
         this.mainImagePath = mainImagePath;
@@ -36,21 +37,21 @@ public class SerialProcessor {
         this.n_SUB = n_SUB;
         this.physicalFramesDir = physicalFramesDir;
         this.virtualMetadataFile = virtualMetadataFile;
-        // Calculate total frames based on provided dimensions (M_MAIN, N_MAIN, etc.)
+        // Calcula el número total de frames basándose en las dimensiones proporcionadas.
         this.totalFrames = ImageUtils.calculateTotalFrames(M_MAIN, N_MAIN, m_SUB, n_SUB);
-        // Attempt to get actual dimensions from the file, which might override the provided ones if mismatch
+        // Intenta obtener las dimensiones reales del archivo, que podrían sobrescribir las proporcionadas si hay una discrepancia.
         this.mainImageDims = getMainImageDimsFromFile();
     }
 
     /**
-     * Reads the actual dimensions of the main image file.
-     * @return An array {width, height} or null if the file cannot be read.
+     * Lee las dimensiones reales del archivo de la imagen principal.
+     * @return Un array {ancho, alto} o null si el archivo no puede ser leído.
      */
     protected int[] getMainImageDimsFromFile() {
         try {
             File file = new File(mainImagePath);
             if (!file.exists()) {
-                System.err.println(String.format("Error: Main image file not found at %s.", mainImagePath));
+                System.err.println(String.format("Error: Archivo de imagen principal no encontrado en %s.", mainImagePath));
                 return null;
             }
             BufferedImage mainImg = ImageIO.read(file);
@@ -58,65 +59,70 @@ public class SerialProcessor {
                 return new int[]{mainImg.getWidth(), mainImg.getHeight()};
             }
         } catch (IOException e) {
-            System.err.println(String.format("Error reading main image dimensions from %s: %s", mainImagePath, e.getMessage()));
+            System.err.println(String.format("Error al leer las dimensiones de la imagen principal desde %s: %s", mainImagePath, e.getMessage()));
         }
         return null;
     }
 
     /**
-     * Returns the actual dimensions of the main image as read from the file.
-     * @return An array {width, height} or null.
+     * Devuelve las dimensiones reales de la imagen principal tal como se leyeron del archivo.
+     * @return Un array {ancho, alto} o null.
      */
     public int[] getMainImageDims() {
         return mainImageDims;
     }
 
-    // --- Case 1: Serial Physical Frame Generation ---
+    // --- Caso 1: Generación Serial de Frames Físicos ---
     public void generatePhysicalFramesSerial() {
-        long startTime = System.currentTimeMillis();
-        System.out.println(String.format("\n--- Serial: Generating %d physical frames ---", totalFrames));
-        ImageUtils.createDirectory(Paths.get(physicalFramesDir));
+        long startTime = System.currentTimeMillis(); // Marca de tiempo de inicio.
+        System.out.println(String.format("\n--- Serial: Generando %d frames físicos ---", totalFrames));
+        ImageUtils.createDirectory(Paths.get(physicalFramesDir)); // Asegura que el directorio de salida exista.
 
         try {
-            // Load the main image once for serial processing
+            // Carga la imagen principal una sola vez para el procesamiento serial.
             BufferedImage mainImg = ImageIO.read(new File(mainImagePath));
             if (mainImg == null) {
-                System.err.println(String.format("Error: Main image '%s' could not be loaded. Cannot generate frames.", mainImagePath));
+                System.err.println(String.format("Error: La imagen principal '%s' no pudo ser cargada. No se pueden generar frames.", mainImagePath));
                 return;
             }
 
             for (long i = 0; i < totalFrames; i++) {
+                // Obtiene las coordenadas de inicio del frame.
                 int[] coords = ImageUtils.getFrameCoordinates(i, M_MAIN, N_MAIN, m_SUB, n_SUB);
-                int x_start = coords[0]; // horizontal start
-                int y_start = coords[1]; // vertical start
+                int x_start = coords[0]; // Inicio horizontal.
+                int y_start = coords[1]; // Inicio vertical.
 
-                // getSubimage uses (x, y, width, height)
-                // Note: n_SUB is width, m_SUB is height
+                // getSubimage usa (x, y, ancho, alto).
+                // Nota: n_SUB es el ancho, m_SUB es la altura.
                 BufferedImage croppedImg = mainImg.getSubimage(x_start, y_start, n_SUB, m_SUB);
-                String framePath = String.format("%s/frame_%05d.png", physicalFramesDir, i); // e.g., frame_00000.png
-                ImageIO.write(croppedImg, "png", new File(framePath));
+                String framePath = String.format("%s/frame_%05d.png", physicalFramesDir, i); // Ej: frame_00000.png
+                ImageIO.write(croppedImg, "png", new File(framePath)); // Escribe el frame recortado.
 
-                if ((i + 1) % 10000 == 0) { // Print progress every 10,000 frames
-                    System.out.println(String.format("Generated %d/%d frames...", i + 1, totalFrames));
+                if ((i + 1) % 10000 == 0) { // Imprime el progreso cada 10,000 frames.
+                    System.out.println(String.format("Generados %d/%d frames...", i + 1, totalFrames));
                 }
             }
         } catch (IOException e) {
-            System.err.println(String.format("Error during serial frame generation: %s", e.getMessage()));
-            e.printStackTrace(); // Print stack trace for debugging
+            System.err.println(String.format("Error durante la generación serial de frames: %s", e.getMessage()));
+            e.printStackTrace(); // Imprime la traza de la pila para depuración.
+            return;
+        } catch (java.awt.image.RasterFormatException e) {
+            System.err.println(String.format("Error al recortar la imagen durante la generación serial de frames (región inválida): %s. Asegúrate de que las dimensiones de los sub-frames (%dx%d) sean válidas para la imagen principal.", e.getMessage(), n_SUB, m_SUB));
+            e.printStackTrace();
             return;
         }
 
-        long endTime = System.currentTimeMillis();
-        System.out.println(String.format("Serial frame generation completed in %.2f seconds.", (endTime - startTime) / 1000.0));
-        compressPhysicalFrames(); // Perform compaction
+        long endTime = System.currentTimeMillis(); // Marca de tiempo de finalización.
+        System.out.println(String.format("Generación serial de frames completada en %.2f segundos.", (endTime - startTime) / 1000.0));
+        compressPhysicalFrames(); // Realiza la compactación (compresión).
     }
 
     /**
-     * Compresses the directory of physical frames into a single ZIP archive.
+     * Comprime el directorio de frames físicos en un único archivo ZIP.
      */
     protected void compressPhysicalFrames() {
-        String compressedArchivePath = MainImageProcessor.COMPRESSED_ARCHIVE_PATH; // Get path from main config
-        System.out.println(String.format("Compressing physical frames directory '%s' to '%s'...", physicalFramesDir, compressedArchivePath));
+        String compressedArchivePath = MainImageProcessor.COMPRESSED_ARCHIVE_PATH; // Obtiene la ruta de la configuración principal.
+        System.out.println(String.format("Comprimiendo el directorio de frames físicos '%s' a '%s'...", physicalFramesDir, compressedArchivePath));
         long startTime = System.currentTimeMillis();
 
         try (FileOutputStream fos = new FileOutputStream(compressedArchivePath);
@@ -124,95 +130,98 @@ public class SerialProcessor {
 
             File sourceDir = new File(physicalFramesDir);
             if (!sourceDir.exists() || !sourceDir.isDirectory()) {
-                System.err.println(String.format("Source directory '%s' not found for compression.", physicalFramesDir));
+                System.err.println(String.format("Directorio de origen '%s' no encontrado para la compresión.", physicalFramesDir));
                 return;
             }
 
-            // Iterate over all files in the source directory
+            // Itera sobre todos los archivos en el directorio de origen.
             File[] files = sourceDir.listFiles();
             if (files != null) {
                 for (File file : files) {
-                    if (file.isFile()) { // Only process files, not subdirectories
-                        zipOut.putNextEntry(new ZipEntry(file.getName())); // Create a new entry in the zip
-                        Files.copy(file.toPath(), zipOut); // Copy file content to the zip stream
-                        zipOut.closeEntry(); // Close the current entry
+                    if (file.isFile()) { // Solo procesa archivos, no subdirectorios.
+                        zipOut.putNextEntry(new ZipEntry(file.getName())); // Crea una nueva entrada en el zip.
+                        Files.copy(file.toPath(), zipOut); // Copia el contenido del archivo al flujo zip.
+                        zipOut.closeEntry(); // Cierra la entrada actual.
                     }
                 }
             }
         } catch (IOException e) {
-            System.err.println(String.format("Error during compression: %s", e.getMessage()));
+            System.err.println(String.format("Error durante la compresión: %s", e.getMessage()));
             e.printStackTrace();
             return;
         }
-        long endTime = System.currentTimeMillis();
-        System.out.println(String.format("Compression completed in %.2f seconds.", (endTime - startTime) / 1000.0));
+        long endTime = System.currentTimeMillis(); // Marca de tiempo de finalización.
+        System.out.println(String.format("Compresión completada en %.2f segundos.", (endTime - startTime) / 1000.0));
     }
 
-    // --- Case 2: Serial Virtual Frame Indexing and Reproduction ---
+    // --- Caso 2: Indexación y Reproducción Serial de Frames Virtuales ---
     public void generateVirtualFrameMetadataSerial() {
-        long startTime = System.currentTimeMillis();
-        System.out.println("\n--- Serial: Generating virtual frame metadata ---");
-        List<FrameMetadata> metadata = new ArrayList<>();
+        long startTime = System.currentTimeMillis(); // Marca de tiempo de inicio.
+        System.out.println("\n--- Serial: Generando metadatos de frames virtuales ---");
+        List<FrameMetadata> metadata = new ArrayList<>(); // Lista para almacenar los metadatos de los frames.
 
         for (long i = 0; i < totalFrames; i++) {
+            // Obtiene las coordenadas del frame.
             int[] coords = ImageUtils.getFrameCoordinates(i, M_MAIN, N_MAIN, m_SUB, n_SUB);
-            // Store x, y, width, height (n_SUB is width, m_SUB is height)
+            // Almacena id, x, y, ancho, alto (n_SUB es ancho, m_SUB es altura) y la ruta de la imagen principal.
             metadata.add(new FrameMetadata(i, coords[0], coords[1], n_SUB, m_SUB, mainImagePath));
         }
 
-        ObjectMapper mapper = new ObjectMapper(); // Jackson object for JSON operations
+        ObjectMapper mapper = new ObjectMapper(); // Objeto Jackson para operaciones JSON.
         try {
-            // Write the list of metadata objects to a JSON file, pretty-printed for readability
+            // Escribe la lista de objetos de metadatos en un archivo JSON, con formato legible.
             mapper.writerWithDefaultPrettyPrinter().writeValue(new File(virtualMetadataFile), metadata);
         } catch (IOException e) {
-            System.err.println(String.format("Error writing virtual frame metadata: %s", e.getMessage()));
+            System.err.println(String.format("Error al escribir los metadatos del frame virtual: %s", e.getMessage()));
             e.printStackTrace();
         }
 
-        long endTime = System.currentTimeMillis();
-        System.out.println(String.format("Virtual frame metadata generation completed in %.2f seconds.", (endTime - startTime) / 1000.0));
+        long endTime = System.currentTimeMillis(); // Marca de tiempo de finalización.
+        System.out.println(String.format("Generación de metadatos de frames virtuales completada en %.2f segundos.", (endTime - startTime) / 1000.0));
     }
 
     /**
-     * Reproduces a virtual frame by loading its metadata and cropping the main image.
-     * @param frameId The ID of the frame to reproduce.
-     * @return The cropped BufferedImage representing the frame, or null if an error occurs.
-     * @throws IOException If there's an error reading files (metadata or main image).
+     * Reproduce un frame virtual cargando sus metadatos y recortando la imagen principal.
+     * @param frameId El ID del frame a reproducir.
+     * @return El BufferedImage recortado que representa el frame, o null si ocurre un error.
+     * @throws IOException Si hay un error al leer archivos (metadatos o imagen principal).
      */
     public BufferedImage reproduceVirtualFrameSerial(long frameId) throws IOException {
-        ObjectMapper mapper = new ObjectMapper();
+        ObjectMapper mapper = new ObjectMapper(); // Objeto Jackson para operaciones JSON.
         List<FrameMetadata> metadata;
         try {
-            // Read all metadata from the JSON file
+            // Lee todos los metadatos del archivo JSON.
             metadata = mapper.readValue(new File(virtualMetadataFile),
                     mapper.getTypeFactory().constructCollectionType(List.class, FrameMetadata.class));
         } catch (IOException e) {
-            System.err.println(String.format("Error: Metadata file not found at %s or could not be read: %s", virtualMetadataFile, e.getMessage()));
-            throw e; // Re-throw to indicate a critical error
+            System.err.println(String.format("Error: Archivo de metadatos no encontrado en %s o no pudo ser leído: %s", virtualMetadataFile, e.getMessage()));
+            throw e; // Relanza para indicar un error crítico.
         }
 
         if (!(frameId >= 0 && frameId < metadata.size())) {
-            System.err.println(String.format("Error: Frame ID %d out of range (0 to %d).", frameId, metadata.size() - 1));
+            System.err.println(String.format("Error: ID de frame %d fuera de rango (0 a %d).", frameId, metadata.size() - 1));
             return null;
         }
 
-        FrameMetadata frameInfo = metadata.get((int) frameId); // Cast to int is safe because frameId is within list bounds
+        // Obtiene la información del frame basándose en el ID. La conversión a int es segura aquí.
+        FrameMetadata frameInfo = metadata.get((int) frameId);
 
         BufferedImage mainImg = null;
         try {
-            // Load the main image (this will be done for each reproduction in serial mode)
+            // Carga la imagen principal (esto se hará para cada reproducción en modo serial).
             mainImg = ImageIO.read(new File(frameInfo.getMainImagePath()));
             if (mainImg == null) {
-                System.err.println(String.format("Error: Main image '%s' not found or could not be read for frame %d.", frameInfo.getMainImagePath(), frameId));
+                System.err.println(String.format("Error: Imagen principal '%s' no encontrada o no pudo ser leída para el frame %d.", frameInfo.getMainImagePath(), frameId));
                 return null;
             }
-            // Crop the sub-image based on the metadata
+            // Recorta la sub-imagen basándose en los metadatos.
             return mainImg.getSubimage(frameInfo.getX(), frameInfo.getY(), frameInfo.getWidth(), frameInfo.getHeight());
         } catch (IOException e) {
-            System.err.println(String.format("Error reproducing frame %d: %s", frameId, e.getMessage()));
-            throw e; // Re-throw to indicate a critical error
+            System.err.println(String.format("Error al reproducir el frame %d: %s", frameId, e.getMessage()));
+            throw e; // Relanza para indicar un error crítico.
         } catch (java.awt.image.RasterFormatException e) {
-            System.err.println(String.format("Error cropping image for frame %d (invalid region): %s. Coords: x=%d, y=%d, w=%d, h=%d. Main image dims: %dx%d",
+            // Captura errores de formato de raster (por ejemplo, coordenadas de recorte fuera de límites).
+            System.err.println(String.format("Error al recortar la imagen para el frame %d (región inválida): %s. Coordenadas: x=%d, y=%d, ancho=%d, alto=%d. Dimensiones de la imagen principal: %dx%d",
                 frameId, e.getMessage(), frameInfo.getX(), frameInfo.getY(), frameInfo.getWidth(), frameInfo.getHeight(), mainImg.getWidth(), mainImg.getHeight()));
             return null;
         }
